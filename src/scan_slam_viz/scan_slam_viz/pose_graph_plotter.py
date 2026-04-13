@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from std_srvs.srv import Trigger
 from scan_slam_msgs.msg import PoseGraph, Constraint, KeyFrame
+from pathlib import Path
 import networkx as nx
 import time
 
@@ -12,9 +13,15 @@ plt.rcParams['font.size'] = 20
 
 class PoseGraphPlotter(Node):
     def __init__(self):
-        super().__init__('odometry_plotter')
+        super().__init__('pose_graph_plotter')
+        self.declare_parameter('update_rate', 10.0)
+        self.declare_parameter('output_dir', '.')
+        update_rate = self.get_parameter('update_rate').get_parameter_value().double_value
+        self.output_dir = Path(self.get_parameter('output_dir').get_parameter_value().string_value)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         self.estimated_pose_sub = self.create_subscription(PoseGraph, 'pose_graph', self.pose_graph_callback, 10)
-        self.save_data_service = self.create_service(Trigger, 'save_pose_graph_data', self.save_plot_data_callback)
+        self.save_data_service = self.create_service(Trigger, '~/save_data', self.save_data_callback)
 
         self.G = nx.Graph()
         self.poses: dict[int, tuple[float, float]] = {}
@@ -26,7 +33,7 @@ class PoseGraphPlotter(Node):
         self.ax.set_xlabel('X Position (m)')
         self.ax.set_ylabel('Y Position (m)')
         self.ax.grid()
-        self.timer = self.create_timer(0.1, self.update_plot)
+        self.timer = self.create_timer(1.0 / update_rate, self.update_plot)
         plt.tight_layout()
 
     def pose_graph_callback(self, msg: PoseGraph):
@@ -34,9 +41,13 @@ class PoseGraphPlotter(Node):
             self.poses[frame.id] = (frame.pose.position.x, frame.pose.position.y)
         self.constraints = msg.constraints
 
-    def save_plot_data_callback(self, request, response):
-        self.fig.savefig('pose_graph.png', dpi=300, bbox_inches='tight')
+    def save_data_callback(self, request, response):
+        stamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        png_path = self.output_dir / f'pose_graph_{stamp}.png'
+        self.fig.savefig(png_path, dpi=300, bbox_inches='tight')
         response.success = True
+        response.message = f'Saved pose graph to {png_path}'
+        self.get_logger().info(response.message)
         return response
 
     def update_plot(self):

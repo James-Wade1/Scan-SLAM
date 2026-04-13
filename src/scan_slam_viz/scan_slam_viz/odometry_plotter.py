@@ -6,6 +6,7 @@ from geometry_msgs.msg import PoseArray, PoseStamped
 from nav_msgs.msg import Odometry
 from std_srvs.srv import Trigger
 from scan_slam_msgs.msg import PoseGraph
+from pathlib import Path
 import time
 
 plt.rcParams['lines.linewidth'] = 2.5
@@ -14,10 +15,16 @@ plt.rcParams['font.size'] = 30
 class OdometryPlotter(Node):
     def __init__(self):
         super().__init__('odometry_plotter')
+        self.declare_parameter('update_rate', 10.0)
+        self.declare_parameter('output_dir', '.')
+        update_rate = self.get_parameter('update_rate').get_parameter_value().double_value
+        self.output_dir = Path(self.get_parameter('output_dir').get_parameter_value().string_value)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         self.real_pose_sub = self.create_subscription(PoseStamped, 'real_pose', self.real_pose_callback, 10)
         self.estimated_pose_sub = self.create_subscription(PoseGraph, 'pose_graph', self.pose_graph_callback, 10)
         self.current_pose_sub = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
-        self.save_data_service = self.create_service(Trigger, 'save_trajectory_data', self.save_plot_data_callback)
+        self.save_data_service = self.create_service(Trigger, '~/save_data', self.save_data_callback)
         self.real_poses = []
         self.estimated_poses = []
         self.current_poses = []
@@ -39,7 +46,7 @@ class OdometryPlotter(Node):
         self.ax.grid()
         plt.tight_layout()
 
-        self.timer = self.create_timer(0.1, self.update_plot)
+        self.timer = self.create_timer(1.0 / update_rate, self.update_plot)
 
     def real_pose_callback(self, msg):
         self.real_poses.append((msg.pose.position.x, msg.pose.position.y))
@@ -52,11 +59,18 @@ class OdometryPlotter(Node):
     def odom_callback(self, msg):
         self.current_poses.append((msg.pose.pose.position.x, msg.pose.pose.position.y))
 
-    def save_plot_data_callback(self, request, response):
-        np.savez(f'plot_data_{time.strftime("%Y-%m-%d_%H-%M-%S")}.npz', real_poses=np.array(self.real_poses), estimated_poses=np.array(self.estimated_poses), current_poses=np.array(self.current_poses))
-        self.fig.savefig('trajectories.png', dpi=300, bbox_inches='tight')
-        self.get_logger().info('Plot data saved to plot_data.npz')
+    def save_data_callback(self, request, response):
+        stamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        npz_path = self.output_dir / f'trajectories_{stamp}.npz'
+        png_path = self.output_dir / f'trajectories_{stamp}.png'
+        np.savez(npz_path,
+                 real_poses=np.array(self.real_poses),
+                 estimated_poses=np.array(self.estimated_poses),
+                 current_poses=np.array(self.current_poses))
+        self.fig.savefig(png_path, dpi=300, bbox_inches='tight')
         response.success = True
+        response.message = f'Saved trajectory data to {self.output_dir}'
+        self.get_logger().info(response.message)
         return response
 
     def update_plot(self):

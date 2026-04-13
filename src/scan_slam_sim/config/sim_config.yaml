@@ -1,0 +1,26 @@
+cmd_vel_publisher:
+  ros__parameters:
+    max_linear_speed: 0.55     # m/s
+    max_angular_speed: 1.8     # rad/s
+    max_linear_accel: 0.8      # m/s^2
+    max_angular_accel: 3.0     # rad/s^2
+    kp_pos: 1.2
+    kp_heading: 2.5
+    kp_goal_yaw: 2.2
+    pos_tolerance: 0.08        # m
+    yaw_tolerance: 0.08        # rad
+    update_rate: 20.0          # Hz
+    init_zero_count: 20        # zero-velocity commands published at startup
+
+odom_publisher:
+  ros__parameters:
+    linear_vel_noise_std: 0.01  # std dev of noise added to linear velocity (m/s)
+    angular_vel_noise_std: 0.05 # std dev of noise added to angular velocity (rad/s)
+    noise_seed: 42
+
+robot_sim_scan:
+  ros__parameters:
+    num_rays: 100
+    ray_max_range: 5.0         # meters
+    cmd_vel_timeout: 0.5       # seconds before cmd_vel is considered stale
+    fps: 60

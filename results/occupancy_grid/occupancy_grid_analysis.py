@@ -69,8 +69,8 @@ def make_error_overlay(truth, estimate, inflation_radius: int = 0):
 
 
 def main():
-    grid_truth    = np.load('src/scan_slam_results/occupancy_grid/occupancy_grid_truth.npy')
-    grid_estimate = np.load('src/scan_slam_results/occupancy_grid/occupancy_grid_estimate.npy')
+    grid_truth    = np.load('occupancy_grid_truth.npy')
+    grid_estimate = np.load('occupancy_grid_estimate.npy')
 
     grid_estimate = 1 - 1 / (1 + np.exp(grid_estimate))
     display = np.full_like(grid_estimate, 0.5)

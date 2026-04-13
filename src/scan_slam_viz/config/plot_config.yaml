@@ -5,3 +5,33 @@ occupancy_grid_plotter:
     grid_resolution: 0.05
     grid_x_size: 7.5
     grid_y_size: 5.5
+    occ_threshold: 0.55   # probability above which a cell is marked occupied
+    free_threshold: 0.45  # probability below which a cell is marked free
+    output_dir: .
+
+odometry_plotter:
+  ros__parameters:
+    update_rate: 10.0  # Hz
+    output_dir: .
+
+pose_graph_plotter:
+  ros__parameters:
+    update_rate: 10.0  # Hz
+    output_dir: .
+
+pose_covariance_analyzer:
+  ros__parameters:
+    motion_cov_x: 0.1
+    motion_cov_y: 0.1
+    motion_cov_yaw: 0.05
+    sync_slop: 0.1
+    sync_queue_size: 50
+    output_dir: .
+
+trajectory_logger_node:
+  ros__parameters:
+    output_dir: trajectories
+
+timing_logger_node:
+  ros__parameters:
+    output_dir: timing_results

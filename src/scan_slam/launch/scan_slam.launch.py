@@ -6,8 +6,16 @@ from launch.actions import TimerAction
 
 def generate_launch_description():
 
-    scan_slam_config = PathJoinSubstitution(
+    slam_config = PathJoinSubstitution(
         [FindPackageShare('scan_slam'), 'config', 'slam_config.yaml']
+    )
+
+    sim_config = PathJoinSubstitution(
+        [FindPackageShare('scan_slam_sim'), 'config', 'sim_config.yaml']
+    )
+
+    viz_config = PathJoinSubstitution(
+        [FindPackageShare('scan_slam_viz'), 'config', 'plot_config.yaml']
     )
 
     ld = LaunchDescription()
@@ -17,7 +25,7 @@ def generate_launch_description():
         executable='frontend_node',
         name='slam_frontend_node',
         output='screen',
-        parameters=[scan_slam_config]
+        parameters=[slam_config],
     )
 
     slam_simulation = Node(
@@ -25,6 +33,7 @@ def generate_launch_description():
         executable='robot_sim',
         name='slam_simulation_node',
         output='screen',
+        parameters=[sim_config],
     )
 
     odometry_plotter = Node(
@@ -32,6 +41,7 @@ def generate_launch_description():
         executable='odometry_plotter',
         name='odometry_plotter_node',
         output='screen',
+        parameters=[viz_config],
     )
 
     pose_graph_plotter = Node(
@@ -39,6 +49,7 @@ def generate_launch_description():
         executable='pose_graph_plotter',
         name='pose_graph_plotter_node',
         output='screen',
+        parameters=[viz_config],
     )
 
     odometry_publisher = Node(
@@ -46,6 +57,7 @@ def generate_launch_description():
         executable='odom_publisher',
         name='odom_publisher_node',
         output='screen',
+        parameters=[sim_config],
     )
 
     occupancy_grid_plotter = Node(
@@ -53,6 +65,7 @@ def generate_launch_description():
         executable='occupancy_grid_plotter',
         name='occupancy_grid_plotter',
         output='screen',
+        parameters=[viz_config],
     )
 
     pose_covariance_analyzer = Node(
@@ -60,6 +73,7 @@ def generate_launch_description():
         executable='pose_covariance_analyzer',
         name='pose_covariance_analyzer_node',
         output='screen',
+        parameters=[viz_config],
     )
 
     trajectory_logger = Node(
@@ -67,6 +81,7 @@ def generate_launch_description():
         executable='trajectory_logger',
         name='trajectory_logger_node',
         output='screen',
+        parameters=[viz_config],
     )
 
     timer_logger = Node(
@@ -74,6 +89,7 @@ def generate_launch_description():
         executable='timer_logger',
         name='timer_logger_node',
         output='screen',
+        parameters=[viz_config],
     )
 
     delayed_cmd_vel_pub = TimerAction(
@@ -84,6 +100,7 @@ def generate_launch_description():
                 executable='cmd_vel_pub',
                 name='cmd_vel_pub_node',
                 output='screen',
+                parameters=[sim_config],
             )
         ]
     )
@@ -92,11 +109,11 @@ def generate_launch_description():
     ld.add_action(slam_simulation)
     ld.add_action(odometry_plotter)
     ld.add_action(odometry_publisher)
-    # ld.add_action(trajectory_logger)
-    # ld.add_action(timer_logger)
+    ld.add_action(trajectory_logger)
+    ld.add_action(timer_logger)
     ld.add_action(pose_graph_plotter)
     ld.add_action(occupancy_grid_plotter)
-    # ld.add_action(pose_covariance_analyzer)
+    ld.add_action(pose_covariance_analyzer)
     ld.add_action(delayed_cmd_vel_pub)
 
     return ld

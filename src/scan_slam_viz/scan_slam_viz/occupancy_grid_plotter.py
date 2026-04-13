@@ -3,9 +3,11 @@ from rclpy.node import Node
 import matplotlib.pyplot as plt
 import numpy as np
 from nav_msgs.msg import OccupancyGrid
+from geometry_msgs.msg import Pose
 from scan_slam_msgs.msg import PoseGraph, Constraint, KeyFrame
 from std_srvs.srv import Trigger
 from skimage.draw import line
+from pathlib import Path
 import time
 
 plt.rcParams['lines.linewidth'] = 2.5
@@ -89,18 +91,25 @@ class OccupancyGridPlotter(Node):
         self.declare_parameter('grid_resolution', 0.05)
         self.declare_parameter('grid_x_size', 8.0)
         self.declare_parameter('grid_y_size', 6.0)
+        self.declare_parameter('occ_threshold', 0.55)
+        self.declare_parameter('free_threshold', 0.45)
+        self.declare_parameter('output_dir', '.')
 
         self.publish_grid = self.get_parameter('publish_grid').get_parameter_value().bool_value
         self.plot_grid = self.get_parameter('plot_grid').get_parameter_value().bool_value
         self.grid_resolution = self.get_parameter('grid_resolution').get_parameter_value().double_value
         self.grid_x_size = self.get_parameter('grid_x_size').get_parameter_value().double_value
         self.grid_y_size = self.get_parameter('grid_y_size').get_parameter_value().double_value
+        self.occ_threshold = self.get_parameter('occ_threshold').get_parameter_value().double_value
+        self.free_threshold = self.get_parameter('free_threshold').get_parameter_value().double_value
+        self.output_dir = Path(self.get_parameter('output_dir').get_parameter_value().string_value)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.grid_width = int(self.grid_x_size / self.grid_resolution)
         self.grid_height = int(self.grid_y_size / self.grid_resolution)
 
         self.pose_graph = None
         self.pose_graph_sub = self.create_subscription(PoseGraph, 'pose_graph', self.pose_graph_callback, 10)
-        self.save_occupancy_grid_srv = self.create_service(Trigger, 'save_occupancy_grid', self.save_occupancy_grid_callback)
+        self.save_occupancy_grid_srv = self.create_service(Trigger, '~/save_data', self.save_data_callback)
         if self.plot_grid:
             plt.ion()
             self.fig, self.ax = plt.subplots(figsize=(16, 10))
@@ -133,6 +142,8 @@ class OccupancyGridPlotter(Node):
         prob = 1 - 1 / (1 + np.exp(self.occupancy_grid.grid))
         if self.plot_grid:
             self.plot_grid_fn(prob)
+        if self.publish_grid:
+            self.publish_occupancy_grid(prob)
 
     def plot_grid_fn(self, prob):
         self.ax.clear()
@@ -145,18 +156,43 @@ class OccupancyGridPlotter(Node):
                   self.occupancy_grid.y_min,
                   self.occupancy_grid.y_min + self.grid_height * self.grid_resolution]
         display = np.full_like(prob, 0.5)
-        display[prob < 0.001] = 0.0
-        display[prob > 0.55] = 1.0
-        im = self.ax.imshow(display, origin='lower', extent=extent, cmap='gray_r', vmin=0.0, vmax=1.0)
+        display[prob < self.free_threshold] = 0.0
+        display[prob > self.occ_threshold] = 1.0
+        self.ax.imshow(display, origin='lower', extent=extent, cmap='gray_r', vmin=0.0, vmax=1.0)
         plt.pause(0.001)
 
-    def save_occupancy_grid_callback(self, request, response):
-        self.get_logger().info('Saving occupancy grid to file...')
-        filename = f'occupancy_grid_{time.strftime("%Y-%m-%d_%H-%M-%S")}.npy'
-        with open(filename, 'wb') as f:
-            np.save(f, self.occupancy_grid.grid)
-        self.fig.savefig('occupancy_grid.png', dpi=300, bbox_inches='tight')
-        self.get_logger().info(f'Occupancy grid saved to {filename}')
+    def publish_occupancy_grid(self, prob):
+        msg = OccupancyGrid()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'map'
+
+        msg.info.resolution = self.grid_resolution
+        msg.info.width = self.grid_width
+        msg.info.height = self.grid_height
+
+        origin = Pose()
+        origin.position.x = self.occupancy_grid.x_min
+        origin.position.y = self.occupancy_grid.y_min
+        origin.orientation.w = 1.0
+        msg.info.origin = origin
+
+        # Convert probability to ROS int8: 0=free, 100=occupied, -1=unknown
+        data = np.full((self.grid_height, self.grid_width), -1, dtype=np.int8)
+        data[prob < self.free_threshold] = 0
+        data[prob > self.occ_threshold] = 100
+
+        msg.data = data.flatten().tolist()
+        self.occupancy_grid_pub.publish(msg)
+
+    def save_data_callback(self, request, response):
+        stamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        npy_path = self.output_dir / f'occupancy_grid_{stamp}.npy'
+        png_path = self.output_dir / f'occupancy_grid_{stamp}.png'
+        np.save(npy_path, self.occupancy_grid.grid)
+        self.fig.savefig(png_path, dpi=300, bbox_inches='tight')
+        response.success = True
+        response.message = f'Saved occupancy grid to {self.output_dir}'
+        self.get_logger().info(response.message)
         return response
 
 def main():

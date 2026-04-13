@@ -27,7 +27,7 @@ class TrajectoryLoggerNode(Node):
         )
         self.ts.registerCallback(self.synced_callback)
 
-        self.save_srv = self.create_service(Trigger, '/save_trajectory', self.save_callback)
+        self.save_srv = self.create_service(Trigger, '~/save_data', self.save_data_callback)
 
         self.est_trajectory   = []   # list of (t, x, y, yaw)
         self.truth_trajectory = []   # list of (t, x, y, yaw)
@@ -57,7 +57,7 @@ class TrajectoryLoggerNode(Node):
         self.est_trajectory.append((t, est_x, est_y, est_yaw))
         self.truth_trajectory.append((t, truth_x, truth_y, truth_yaw))
 
-    def save_callback(self, request, response):
+    def save_data_callback(self, request, response):
         est   = np.array(self.est_trajectory)    # (N, 4)
         truth = np.array(self.truth_trajectory)  # (N, 4)
 
@@ -66,6 +66,7 @@ class TrajectoryLoggerNode(Node):
 
         response.success = True
         response.message = f'Saved {len(est)} poses to {self.output_dir}'
+        self.get_logger().info(response.message)
         return response
 
 

@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
+from std_srvs.srv import Trigger
 import numpy as np
 from pathlib import Path
 
@@ -20,6 +21,7 @@ class TimingLoggerNode(Node):
                                  self.loop_closure_callback, 10)
         self.create_subscription(Float64MultiArray, '/backend_timing',
                                  self.backend_callback, 10)
+        self.create_service(Trigger, '~/save_data', self.save_data_callback)
 
         self.frontend_times       = []
         self.frontend_iterations  = []
@@ -54,6 +56,12 @@ class TimingLoggerNode(Node):
         np.save(self.output_dir / 'backend_graph_sizes.npy',     np.array(self.backend_graph_sizes))
         self.get_logger().info(f'Saved timing data to {self.output_dir}')
 
+    def save_data_callback(self, request, response):
+        self.save()
+        response.success = True
+        response.message = f'Saved timing data to {self.output_dir}'
+        return response
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -63,7 +71,6 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        node.save()
         node.destroy_node()
         rclpy.shutdown()
 

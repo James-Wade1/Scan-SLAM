@@ -29,15 +29,17 @@ from geometry_msgs.msg import PoseStamped, Point, Quaternion, TwistStamped
 # ── Config ────────────────────────────────────────────────────────────────────
 WIDTH, HEIGHT = 800, 600
 ROOM_MARGIN = 40
-FPS = 60
-NUM_RAYS = 100
-RAY_MAX_LEN = 500
 ROBOT_RADIUS = 12
 ROBOT_SPEED = 1
 ROBOT_TURN_SPEED = 1        # degrees per frame
-CMD_VEL_TIMEOUT_SEC = 0.5
 WALL_THICKNESS = 3          # pixels; matches pygame.draw.rect(..., 3)
 PX_PER_METRE = 100.0        # 100 px = 1 m
+
+# Defaults — overridden at runtime by ROS parameters
+FPS = 60
+NUM_RAYS = 100
+RAY_MAX_LEN = 500           # pixels (= ray_max_range * PX_PER_METRE)
+CMD_VEL_TIMEOUT_SEC = 0.5
 
 # Colors
 BG_COLOR       = (30,  30,  30)
@@ -157,10 +159,19 @@ class SimNode(Node):
     def __init__(self):
         super().__init__('robot_sim_scan')
         self.declare_parameter('disable_publishers', False)
+        self.declare_parameter('num_rays', NUM_RAYS)
+        self.declare_parameter('ray_max_range', RAY_MAX_LEN / PX_PER_METRE)
+        self.declare_parameter('cmd_vel_timeout', CMD_VEL_TIMEOUT_SEC)
+        self.declare_parameter('fps', FPS)
+
         self.disable_publishers = (
-            self.get_parameter('disable_publishers')
-                .get_parameter_value().bool_value
+            self.get_parameter('disable_publishers').get_parameter_value().bool_value
         )
+        self.num_rays        = self.get_parameter('num_rays').get_parameter_value().integer_value
+        self.ray_max_range   = self.get_parameter('ray_max_range').get_parameter_value().double_value
+        self.cmd_vel_timeout = self.get_parameter('cmd_vel_timeout').get_parameter_value().double_value
+        self.fps             = self.get_parameter('fps').get_parameter_value().integer_value
+
         self.scan_pub = self.create_publisher(LaserScan,   '/scan',      10)
         self.pose_pub = self.create_publisher(PoseStamped, '/real_pose', 10)
         self.linear_x  = 0.0
@@ -188,9 +199,9 @@ class SimNode(Node):
         msg.angle_max       = float(rh_angles[-1])
         msg.angle_increment = float((rh_angles[-1] - rh_angles[0]) / max(num - 1, 1))
         msg.time_increment  = 0.0
-        msg.scan_time       = 1.0 / FPS
+        msg.scan_time       = 1.0 / self.fps
         msg.range_min       = 0.0
-        msg.range_max       = float(RAY_MAX_LEN / PX_PER_METRE)
+        msg.range_max       = float(self.ray_max_range)
         msg.ranges          = [float('inf') if math.isnan(d) else d / PX_PER_METRE
                                for d in distances_px]
         msg.intensities     = []
@@ -216,7 +227,7 @@ class SimNode(Node):
 
     def get_cmd_vel(self):
         age_sec = (self.get_clock().now() - self.last_msg_time).nanoseconds / 1e9
-        if age_sec > CMD_VEL_TIMEOUT_SEC:
+        if age_sec > self.cmd_vel_timeout:
             return 0.0, 0.0
         return self.linear_x, self.angular_z
 
@@ -347,6 +358,10 @@ def main():
     rclpy.init()
     sim_node = SimNode()
 
+    num_rays      = sim_node.num_rays
+    ray_max_len   = int(sim_node.ray_max_range * PX_PER_METRE)
+    fps           = sim_node.fps
+
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("2D Robot Raycaster  (publishing /scan)")
@@ -407,7 +422,7 @@ def main():
             pygame.draw.circle(screen, OBSTACLE_OUTLINE, (cx, cy), cr, 2)
 
         rays, distances, angles = cast_rays(
-            robot_x, robot_y, robot_angle, NUM_RAYS, RAY_MAX_LEN)
+            robot_x, robot_y, robot_angle, num_rays, ray_max_len)
         sim_node.publish_scan(distances, angles)
 
         pose_x     = (robot_x - spawn_x) / PX_PER_METRE
@@ -449,7 +464,7 @@ def main():
                         (ROOM_LEFT + 8, ROOM_TOP + 8 + i * 20))
 
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick(fps)
 
     sim_node.destroy_node()
     rclpy.shutdown()

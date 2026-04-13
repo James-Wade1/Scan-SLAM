@@ -1,5 +1,3 @@
-from cProfile import label
-
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -7,6 +5,8 @@ from std_srvs.srv import Trigger
 import message_filters
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
+import time
 
 plt.rcParams['lines.linewidth'] = 2.5
 plt.rcParams['font.size'] = 20
@@ -14,18 +14,34 @@ plt.rcParams['font.size'] = 20
 class PoseCovarianceAnalyzer(Node):
     def __init__(self):
         super().__init__('pose_covariance_analyzer')
+        self.declare_parameter('motion_cov_x', 0.1)
+        self.declare_parameter('motion_cov_y', 0.1)
+        self.declare_parameter('motion_cov_yaw', 0.05)
+        self.declare_parameter('sync_slop', 0.1)
+        self.declare_parameter('sync_queue_size', 50)
+        self.declare_parameter('output_dir', '.')
+
+        self.motion_cov_lower = [
+            self.get_parameter('motion_cov_x').get_parameter_value().double_value,
+            self.get_parameter('motion_cov_y').get_parameter_value().double_value,
+            self.get_parameter('motion_cov_yaw').get_parameter_value().double_value,
+        ]
+        sync_slop       = self.get_parameter('sync_slop').get_parameter_value().double_value
+        sync_queue_size = self.get_parameter('sync_queue_size').get_parameter_value().integer_value
+        self.output_dir = Path(self.get_parameter('output_dir').get_parameter_value().string_value)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         pose_sub  = message_filters.Subscriber(self, PoseWithCovarianceStamped, '/pose_estimate')
         truth_sub = message_filters.Subscriber(self, PoseStamped, '/real_pose')
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [pose_sub, truth_sub],
-            queue_size=50,
-            slop=0.1,
+            queue_size=sync_queue_size,
+            slop=sync_slop,
         )
         self.ts.registerCallback(self.synced_callback)
 
-        self.save_srv = self.create_service(Trigger, '/save_covariance_plot', self.save_callback)
+        self.save_srv = self.create_service(Trigger, '~/save_data', self.save_data_callback)
 
         plt.ion()
         self.fig, self.axes = plt.subplots(2, 3, figsize=(16, 8), constrained_layout=True)
@@ -45,12 +61,14 @@ class PoseCovarianceAnalyzer(Node):
         self.fig_update_timer  = self.create_timer(0.01, lambda: self.fig.canvas.flush_events())
         self.plot_update_timer = self.create_timer(1.0, self.update_plot)
 
-    def save_callback(self, request, response):
+    def save_data_callback(self, request, response):
         self.update_plot()  # force a final render with all data
-        self.fig.savefig('pose_analysis.png', dpi=300, bbox_inches='tight')
-        self.get_logger().info('Figure saved to pose_analysis.png')
+        stamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        png_path = self.output_dir / f'pose_analysis_{stamp}.png'
+        self.fig.savefig(png_path, dpi=300, bbox_inches='tight')
         response.success = True
-        response.message = 'Figure saved to pose_analysis.png'
+        response.message = f'Saved covariance analysis to {png_path}'
+        self.get_logger().info(response.message)
         return response
 
     def synced_callback(self, pose_msg: PoseWithCovarianceStamped, truth_msg: PoseStamped):
@@ -108,13 +126,11 @@ class PoseCovarianceAnalyzer(Node):
             if col == 0:
                 ax.legend(loc='upper right', fontsize=15)
 
-            motion_cov_lower = [0.1, 0.1, 0.05]
-
             ax = self.axes[1, col]
             ax.clear()
             ax.plot(t, sigma, 'g-', linewidth=1.5)
-            ax.axhline(y=np.sqrt(motion_cov_lower[col]), color='r', linestyle='--',
-                    linewidth=1.5, label=f'Motion cov bound (√{motion_cov_lower[col]})')
+            ax.axhline(y=np.sqrt(self.motion_cov_lower[col]), color='r', linestyle='--',
+                    linewidth=1.5, label=f'Motion cov bound (√{self.motion_cov_lower[col]})')
             ax.set_xlabel('Time (s)')
             short_label = label.split(' ')[0]
             ax.set_ylabel(f'$\\sigma_{{{short_label}}}$ ({"m" if "rad" not in label else "rad"})')

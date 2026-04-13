@@ -34,20 +34,33 @@ def yaw_from_quaternion(z, w):
 class CmdVelPublisher(Node):
     def __init__(self):
         super().__init__('cmd_vel_publisher')
+        self.declare_parameter('max_linear_speed', 0.55)
+        self.declare_parameter('max_angular_speed', 1.8)
+        self.declare_parameter('max_linear_accel', 0.8)
+        self.declare_parameter('max_angular_accel', 3.0)
+        self.declare_parameter('kp_pos', 1.2)
+        self.declare_parameter('kp_heading', 2.5)
+        self.declare_parameter('kp_goal_yaw', 2.2)
+        self.declare_parameter('pos_tolerance', 0.08)
+        self.declare_parameter('yaw_tolerance', 0.08)
+        self.declare_parameter('update_rate', 20.0)
+        self.declare_parameter('init_zero_count', 20)
+
+        self.max_linear_speed  = self.get_parameter('max_linear_speed').get_parameter_value().double_value
+        self.max_angular_speed = self.get_parameter('max_angular_speed').get_parameter_value().double_value
+        self.max_linear_accel  = self.get_parameter('max_linear_accel').get_parameter_value().double_value
+        self.max_angular_accel = self.get_parameter('max_angular_accel').get_parameter_value().double_value
+        self.kp_pos            = self.get_parameter('kp_pos').get_parameter_value().double_value
+        self.kp_heading        = self.get_parameter('kp_heading').get_parameter_value().double_value
+        self.kp_goal_yaw       = self.get_parameter('kp_goal_yaw').get_parameter_value().double_value
+        self.pos_tolerance     = self.get_parameter('pos_tolerance').get_parameter_value().double_value
+        self.yaw_tolerance     = self.get_parameter('yaw_tolerance').get_parameter_value().double_value
+        update_rate            = self.get_parameter('update_rate').get_parameter_value().double_value
+        self.publish_zero_max  = self.get_parameter('init_zero_count').get_parameter_value().integer_value
+
         self.publisher_ = self.create_publisher(TwistStamped, '/cmd_vel', 10)
         self.pose_sub = self.create_subscription(PoseStamped, '/real_pose', self.pose_callback, 10)
         self.pause_cmd_vel = self.create_service(SetBool, '/pause_cmd_vel', self.pause_cmd_vel_callback)
-
-        # Controller settings
-        self.max_linear_speed = 0.55     # m/s
-        self.max_angular_speed = 1.8     # rad/s
-        self.max_linear_accel = 0.8      # m/s^2
-        self.max_angular_accel = 3.0     # rad/s^2
-        self.kp_pos = 1.2
-        self.kp_heading = 2.5
-        self.kp_goal_yaw = 2.2
-        self.pos_tolerance = 0.08        # m
-        self.yaw_tolerance = 0.08        # rad
 
         self.current_x = None
         self.current_y = None
@@ -57,10 +70,8 @@ class CmdVelPublisher(Node):
         self.cmd_linear = 0.0
         self.cmd_angular = 0.0
         self.last_update_time = self.get_clock().now()
-        self.publish_zero_max = 20
 
-        timer_period = 0.05  # 20 Hz
-        self.timer = self.create_timer(timer_period, self.publish_cmd_vel)
+        self.timer = self.create_timer(1.0 / update_rate, self.publish_cmd_vel)
         self.publish_zero_counter = 0
 
         self.cmd_vel_paused = False

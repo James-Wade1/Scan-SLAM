@@ -8,6 +8,18 @@ class OdomPublisher(Node):
 
     def __init__(self):
         super().__init__('odom_publisher')
+        self.declare_parameter('linear_vel_noise_std', 0.01)
+        self.declare_parameter('angular_vel_noise_std', 0.05)
+        self.declare_parameter('noise_seed', 42)
+
+        linear_noise_std  = self.get_parameter('linear_vel_noise_std').get_parameter_value().double_value
+        angular_noise_std = self.get_parameter('angular_vel_noise_std').get_parameter_value().double_value
+        noise_seed        = self.get_parameter('noise_seed').get_parameter_value().integer_value
+
+        self.linear_noise_std  = linear_noise_std
+        self.angular_noise_std = angular_noise_std
+        np.random.seed(noise_seed)
+
         self.cmd_vel_sub = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, 10)
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
         self.x = 0.0
@@ -26,8 +38,8 @@ class OdomPublisher(Node):
             self.last_time = now
 
             # Add noise to the velocity commands before integrating
-            v = cmd_vel_msg.twist.linear.x + np.random.normal(0, 0.01)
-            w = cmd_vel_msg.twist.angular.z + np.random.normal(0, 0.05)
+            v = cmd_vel_msg.twist.linear.x + np.random.normal(0, self.linear_noise_std)
+            w = cmd_vel_msg.twist.angular.z + np.random.normal(0, self.angular_noise_std)
 
             # Integrate
             self.x += v * np.cos(self.theta) * dt
@@ -54,7 +66,6 @@ class OdomPublisher(Node):
         )
 
 def main(args=None):
-    np.random.seed(42)  # For reproducibility
     rclpy.init(args=args)
     odom_publisher = OdomPublisher()
     rclpy.spin(odom_publisher)
