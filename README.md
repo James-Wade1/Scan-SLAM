@@ -8,6 +8,11 @@ A ROS 2 (Jazzy) educational Scan-SLAM project with:
 
 ---
 
+## Video and Paper
+The presentation on Scan SLAM can be found here: [https://youtu.be/roFVnoGwXZs](https://youtu.be/roFVnoGwXZs)
+
+The paper on Scan SLAM can be found here: [https://github.com/James-Wade1/portfolio/blob/main/assets/files/projects/scan_slam/Scan_SLAM.pdf](https://github.com/James-Wade1/portfolio/blob/main/assets/files/projects/scan_slam/Scan_SLAM.pdf)
+
 ## Main References (Frontend + Backend)
 
 This project’s SLAM implementation is primarily based on the following two papers:
