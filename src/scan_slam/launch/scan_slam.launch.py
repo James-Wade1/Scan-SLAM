@@ -21,56 +21,56 @@ def generate_launch_description():
     )
 
     slam_simulation = Node(
-        package='test_slam',
+        package='scan_slam_sim',
         executable='robot_sim',
         name='slam_simulation_node',
         output='screen',
     )
 
     odometry_plotter = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='odometry_plotter',
         name='odometry_plotter_node',
         output='screen',
     )
 
     pose_graph_plotter = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='pose_graph_plotter',
         name='pose_graph_plotter_node',
         output='screen',
     )
 
     odometry_publisher = Node(
-        package='test_slam',
+        package='scan_slam_sim',
         executable='odom_publisher',
         name='odom_publisher_node',
         output='screen',
     )
 
     occupancy_grid_plotter = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='occupancy_grid_plotter',
         name='occupancy_grid_plotter',
         output='screen',
     )
 
     pose_covariance_analyzer = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='pose_covariance_analyzer',
         name='pose_covariance_analyzer_node',
         output='screen',
     )
 
     trajectory_logger = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='trajectory_logger',
         name='trajectory_logger_node',
         output='screen',
     )
 
     timer_logger = Node(
-        package='test_slam',
+        package='scan_slam_viz',
         executable='timer_logger',
         name='timer_logger_node',
         output='screen',
@@ -80,7 +80,7 @@ def generate_launch_description():
         period=3.0,
         actions=[
             Node(
-                package='test_slam',
+                package='scan_slam_sim',
                 executable='cmd_vel_pub',
                 name='cmd_vel_pub_node',
                 output='screen',

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /home/jwade19/ros_ws
+cd /home/user/ros_ws
 
 source /opt/ros/jazzy/setup.bash
 
