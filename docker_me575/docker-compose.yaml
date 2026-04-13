@@ -1,0 +1,38 @@
+services:
+  # Base service - template only
+  scan_slam:
+    container_name: scan_slam
+    image: scan_slam
+    build:
+      context: ..
+      dockerfile: docker_scan_slam/Dockerfile
+    user: user
+    network_mode: host
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+      - __NV_PRIME_RENDER_OFFLOAD=1
+      - __VK_LAYER_NV_optimus=NVIDIA_only
+    volumes:
+      - ../src:/home/user/ros_ws/src
+      - ./vscode:/home/user/ros_ws/.vscode
+      - ./startup:/startup
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev:/dev:rw
+    restart: always
+    entrypoint: /startup/entrypoint.sh
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility, compute, graphics, display]

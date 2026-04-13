@@ -1,0 +1,35 @@
+slam_frontend_node:
+  ros__parameters:
+    add_keyframe_xy_threshold: 0.2
+    add_keyframe_theta_threshold: 0.1
+
+    search_window_xy: 0.0
+    search_window_theta: 0.0
+
+    loop_closure_search_radius: 1.0
+    loop_closure_search_theta: 0.5
+    loop_closure_candidate_window: 30
+
+    resolution_xy: 0.05
+    resolution_theta: 0.05
+
+    sigma_xy: 0.1
+    correlative_coarse_reduction_factor: 4
+
+    use_approx_matcher_covariance: true
+
+    motion_covariance: [
+      0.1, 0.0, 0.0,
+      0.0, 0.1, 0.0,
+      0.0, 0.0, 0.05
+    ]
+
+    score_temperature: 0.01
+    scan_topic: "scan"
+    pose_graph_topic: "pose_graph"
+
+    backend_threshold: 1e-4
+    loop_closure_score_threshold: -0.4
+    mahalanobis_threshold: 1.0
+
+    use_sparse_solver: true

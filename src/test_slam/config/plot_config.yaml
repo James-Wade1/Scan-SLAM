@@ -1,0 +1,7 @@
+occupancy_grid_plotter:
+  ros__parameters:
+    publish_grid: false
+    plot_grid: true
+    grid_resolution: 0.05
+    grid_x_size: 7.5
+    grid_y_size: 5.5
